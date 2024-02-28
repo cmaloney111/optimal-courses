@@ -5,8 +5,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -24,25 +26,16 @@ public class CourseSelector {
         ArrayList<String> coursesTakenByCode = populateCoursesTakenByCode();
         ArrayList<Course> coursesTaken = populateCoursesTaken(cs, coursesTakenByCode);
 
-        Map<Requirement, Integer> requirementsNotMet = new HashMap<>();
-        for (Requirement requirement: requirements) {
-            if (requirement.isRequirementFulfilled(coursesTaken) == 0) {
-                //System.out.println("Requirement fulfilled: " + requirement.getRequirementName());
-            }
-            else {
-                requirementsNotMet.put(requirement, requirement.isRequirementFulfilled(coursesTaken));
-                //System.out.println("Requirement not fulfilled: " + requirement.getRequirementName() + ", " + requirement.isRequirementFulfilled(coursesTaken) + " units left");
-            }
-        }
+        Map<Requirement, Integer> requirementsNotMet = checkRequirements(requirements, coursesTaken);
 
         findCoursesNaiveMethod(requirementsNotMet);
+        findCoursesBruteForceMethod(requirementsNotMet, requirements, coursesTaken);
+        findCoursesAlmostDivideAndConquerMethod(requirementsNotMet, requirements, coursesTaken);
+    
+        
 
-        // Example: Print course names
-        /*for (Requirement requirement : requirements) {
-            for (Course course : requirement.getNecessaryCourses()) {
-                System.out.println(course.getName());
-            }
-        }*/
+
+
     }    
 
 
@@ -160,6 +153,16 @@ public class CourseSelector {
         return requirements;
     }
 
+    private static Map<Requirement, Integer> checkRequirements(List<Requirement> requirements, ArrayList<Course> coursesTaken) {
+        Map<Requirement, Integer> requirementsNotMet = new HashMap<>();
+        for (Requirement requirement: requirements) {
+            if (requirement.isRequirementFulfilled(coursesTaken) != 0) {
+                requirementsNotMet.put(requirement, requirement.isRequirementFulfilled(coursesTaken));
+            }
+        }
+        return requirementsNotMet;
+    }
+
     private static Requirement makeRequirement(CourseScraper cs, String reqName, List<String> names, int number) {
         ArrayList<Course> necessaryCourses = new ArrayList<Course>();
         for (String name : names) {
@@ -264,6 +267,294 @@ public class CourseSelector {
         }
     }
 
+    private static void findCoursesBruteForceMethod(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> coursesTaken) {
+        ArrayList<Course> coursesForReqsNotMet = new ArrayList<Course>();
+
+        ArrayList<Requirement> spring = new ArrayList<Requirement>();
+        ArrayList<Requirement> summer = new ArrayList<Requirement>();
+        ArrayList<Requirement> fall = new ArrayList<Requirement>();
+        ArrayList<Requirement> winter = new ArrayList<Requirement>();
+        for (Map.Entry<Requirement, Integer> requirement: requirementsNotMet.entrySet()) {
+            coursesForReqsNotMet.addAll(requirement.getKey().getNecessaryCourses());            
+            for (Course course : requirement.getKey().getNecessaryCourses()) {
+                if (!spring.contains(requirement.getKey()) && Arrays.asList(course.getQuartersOffered()).contains(Season.SPRING)) {
+                    spring.add(requirement.getKey());
+                }
+                if (!summer.contains(requirement.getKey()) && Arrays.asList(course.getQuartersOffered()).contains(Season.SUMMER)) {
+                    summer.add(requirement.getKey());
+                }
+                if (!fall.contains(requirement.getKey()) && Arrays.asList(course.getQuartersOffered()).contains(Season.FALL)) {
+                    fall.add(requirement.getKey());
+                }
+                if (!winter.contains(requirement.getKey()) && Arrays.asList(course.getQuartersOffered()).contains(Season.WINTER)) {
+                    winter.add(requirement.getKey());
+                }
+            }
+        }
+        System.out.println("Number of requirements not met: " + requirementsNotMet.size());
+        System.out.println("Number of courses for requirements not met: " + coursesForReqsNotMet.size());
+        System.out.println("Number of requirements that contain spring courses: " + spring.size());
+        System.out.println("Number of requirements that contain summer courses: " + summer.size());
+        System.out.println("Number of requirements that contain fall courses: " + fall.size());
+        System.out.println("Number of requirements that contain winter courses: " + winter.size());
+
+        ArrayList<Course> springCourses = new ArrayList<Course>();
+        ArrayList<Course> summerCourses = new ArrayList<Course>();
+        ArrayList<Course> winterCourses = new ArrayList<Course>();
+        ArrayList<Course> fallCourses = new ArrayList<Course>();
+        for (Course c : coursesForReqsNotMet) {
+            if (!springCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.SPRING)) {
+                springCourses.add(c);
+            }
+            if (!summerCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.SUMMER)) {
+                summerCourses.add(c);
+            }
+            if (!fallCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.FALL)) {
+                fallCourses.add(c);
+            }
+            if (!winterCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.WINTER)) {
+                winterCourses.add(c);  
+            }
+        }
+
+        System.out.println("Number of courses that are offered in spring: " + springCourses.size());
+        System.out.println("Number of courses that are offered in summer: " + summerCourses.size());
+        System.out.println("Number of courses that are offered in fall: " + fallCourses.size());
+        System.out.println("Number of courses that are offered in winter: " + winterCourses.size());
+        System.out.println("\n Note that this brute force method has to calculate (" +
+                            springCourses.size() + "^9) * (" + summerCourses.size() + "^2) * (" + fallCourses.size() + "^5) * (" + winterCourses.size() +
+                            "^5) \ndifferent combinations of courses... that's " + (Math.pow(springCourses.size(), 9)*Math.pow(summerCourses.size(), 2)*Math.pow(fallCourses.size(),5)*Math.pow(winterCourses.size(),5)) + " courses!");
+
+        Scanner in = new Scanner(System.in);
+ 
+        System.out.println("Are you sure you would like to continue? This may take a while... [Y] / [N]");
+        while (true) {
+            String s = in.nextLine();
+            if (s.equals("Y")) {
+                break;
+            }
+            if (s.equals("N")) {
+                System.out.println("Smart choice");
+                return;
+            }
+        }
+        ArrayList<ArrayList<Course>> winningCourseList = new ArrayList<ArrayList<Course>>();
+        int count = 0;
+        for (Course course_spring_1 : coursesForReqsNotMet) {
+            if (Arrays.asList(course_spring_1.getQuartersOffered()).contains(Season.SPRING)) {
+            for (Course course_spring_2 : coursesForReqsNotMet) {
+                if (Arrays.asList(course_spring_2.getQuartersOffered()).contains(Season.SPRING)) {
+                for (Course course_spring_3 : coursesForReqsNotMet) {
+                    if (Arrays.asList(course_spring_3.getQuartersOffered()).contains(Season.SPRING)) {
+                    for (Course course_spring_4 : coursesForReqsNotMet) {
+                        if (Arrays.asList(course_spring_4.getQuartersOffered()).contains(Season.SPRING)) {
+                        for (Course course_spring_5 : coursesForReqsNotMet) {
+                            if (Arrays.asList(course_spring_5.getQuartersOffered()).contains(Season.SPRING)) {
+                            for (Course course_summer_1 : coursesForReqsNotMet) {
+                                if (Arrays.asList(course_summer_1.getQuartersOffered()).contains(Season.SUMMER)) {
+                                for (Course course_summer_2 : coursesForReqsNotMet) {
+                                    if (Arrays.asList(course_summer_2.getQuartersOffered()).contains(Season.SUMMER)) {
+                                    for (Course course_fall_1 : coursesForReqsNotMet) {
+                                        if (Arrays.asList(course_fall_1.getQuartersOffered()).contains(Season.FALL)) {
+                                        for (Course course_fall_2 : coursesForReqsNotMet) {
+                                            if (Arrays.asList(course_fall_2.getQuartersOffered()).contains(Season.FALL)) {
+                                            for (Course course_fall_3 : coursesForReqsNotMet) {
+                                                if (Arrays.asList(course_fall_3.getQuartersOffered()).contains(Season.FALL)) {
+                                                for (Course course_fall_4 : coursesForReqsNotMet) {
+                                                    if (Arrays.asList(course_fall_4.getQuartersOffered()).contains(Season.FALL)) {
+                                                    for (Course course_fall_5 : coursesForReqsNotMet) {
+                                                        if (Arrays.asList(course_fall_5.getQuartersOffered()).contains(Season.FALL)) {
+                                                        for (Course course_winter_1 : coursesForReqsNotMet) {
+                                                            if (Arrays.asList(course_winter_1.getQuartersOffered()).contains(Season.WINTER)) {
+                                                            for (Course course_winter_2 : coursesForReqsNotMet) {
+                                                                if (Arrays.asList(course_winter_2.getQuartersOffered()).contains(Season.WINTER)) {
+                                                                for (Course course_winter_3 : coursesForReqsNotMet) {
+                                                                    if (Arrays.asList(course_winter_3.getQuartersOffered()).contains(Season.WINTER)) {
+                                                                    for (Course course_winter_4 : coursesForReqsNotMet) {
+                                                                        if (Arrays.asList(course_winter_4.getQuartersOffered()).contains(Season.WINTER)) {
+                                                                        for (Course course_winter_5 : coursesForReqsNotMet) {
+                                                                            if (Arrays.asList(course_winter_5.getQuartersOffered()).contains(Season.WINTER)) {
+                                                                            for (Course course_spring_6 : coursesForReqsNotMet) {
+                                                                                if (Arrays.asList(course_spring_6.getQuartersOffered()).contains(Season.SPRING)) {
+                                                                                for (Course course_spring_7 : coursesForReqsNotMet) {
+                                                                                    if (Arrays.asList(course_spring_7.getQuartersOffered()).contains(Season.SPRING)) {
+                                                                                    for (Course course_spring_8 : coursesForReqsNotMet) {
+                                                                                        if (Arrays.asList(course_spring_8.getQuartersOffered()).contains(Season.SPRING)) {
+                                                                                        for (Course course_spring_9 : coursesForReqsNotMet) {
+                                                                                            if (Arrays.asList(course_spring_9.getQuartersOffered()).contains(Season.SPRING)) {
+                                                                                            count++;
+                                                                                            System.out.println(count);
+                                                                                            ArrayList<Course> newCoursesTaken = new ArrayList<Course>();
+                                                                                            newCoursesTaken.addAll(coursesTaken);
+                                                                                            newCoursesTaken.add(course_spring_1);
+                                                                                            newCoursesTaken.add(course_spring_2);
+                                                                                            newCoursesTaken.add(course_spring_3);
+                                                                                            newCoursesTaken.add(course_spring_4);
+                                                                                            newCoursesTaken.add(course_spring_5);
+                                                                                            newCoursesTaken.add(course_spring_6);
+                                                                                            newCoursesTaken.add(course_spring_7);
+                                                                                            newCoursesTaken.add(course_spring_8);
+                                                                                            newCoursesTaken.add(course_spring_9);
+                                                                                            newCoursesTaken.add(course_summer_1);
+                                                                                            newCoursesTaken.add(course_summer_2);
+                                                                                            newCoursesTaken.add(course_winter_1);
+                                                                                            newCoursesTaken.add(course_winter_2);
+                                                                                            newCoursesTaken.add(course_winter_3);
+                                                                                            newCoursesTaken.add(course_winter_4);
+                                                                                            newCoursesTaken.add(course_winter_5);
+                                                                                            newCoursesTaken.add(course_fall_1);
+                                                                                            newCoursesTaken.add(course_fall_2);
+                                                                                            newCoursesTaken.add(course_fall_3);
+                                                                                            newCoursesTaken.add(course_fall_4);
+                                                                                            newCoursesTaken.add(course_fall_5);
+                                                                                            for (Requirement requirement: requirements) {
+                                                                                                if (requirement.isRequirementFulfilled(newCoursesTaken) != 0) {
+                                                                                                    break;
+                                                                                                }
+                                                                                            }
+                                                                                            ArrayList<Course> newCoursesTakens = new ArrayList<Course>();
+                                                                                            newCoursesTakens.add(course_spring_1);
+                                                                                            newCoursesTakens.add(course_spring_2);
+                                                                                            newCoursesTakens.add(course_spring_3);
+                                                                                            newCoursesTakens.add(course_spring_4);
+                                                                                            newCoursesTakens.add(course_spring_5);
+                                                                                            newCoursesTakens.add(course_summer_1);
+                                                                                            newCoursesTakens.add(course_summer_2);
+                                                                                            newCoursesTakens.add(course_winter_1);
+                                                                                            newCoursesTakens.add(course_winter_2);
+                                                                                            newCoursesTakens.add(course_winter_3);
+                                                                                            newCoursesTakens.add(course_winter_4);
+                                                                                            newCoursesTakens.add(course_winter_5);
+                                                                                            newCoursesTakens.add(course_fall_1);
+                                                                                            newCoursesTakens.add(course_fall_2);
+                                                                                            newCoursesTakens.add(course_fall_3);
+                                                                                            newCoursesTakens.add(course_fall_4);
+                                                                                            newCoursesTakens.add(course_fall_5);
+                                                                                            newCoursesTakens.add(course_spring_6);
+                                                                                            newCoursesTakens.add(course_spring_7);
+                                                                                            newCoursesTakens.add(course_spring_8);
+                                                                                            newCoursesTakens.add(course_spring_9);
+                                                                                            winningCourseList.add(newCoursesTakens);
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }                                   
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }}}}}}}}}}}}}}}}}}}}}}
+        int co = 0;
+        for (ArrayList<Course> winningCourseSelection : winningCourseList) {
+            co++;
+            System.out.print("Course list number " + co + ": ");
+            for (Course course : winningCourseSelection) {
+                System.out.print(course.getName().substring(0, 9) + ", ");
+            }
+            System.out.println("");
+        }
+    }
+
+    private static void findCoursesAlmostDivideAndConquerMethod(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> coursesTaken) {
+        ArrayList<Course> coursesForReqsNotMet = new ArrayList<Course>();
+        for (Map.Entry<Requirement, Integer> requirement: requirementsNotMet.entrySet()) {
+            coursesForReqsNotMet.addAll(requirement.getKey().getNecessaryCourses());            
+        }
+        ArrayList<Course> springCourses = new ArrayList<Course>();
+        ArrayList<Course> summerCourses = new ArrayList<Course>();
+        ArrayList<Course> winterCourses = new ArrayList<Course>();
+        ArrayList<Course> fallCourses = new ArrayList<Course>();
+        for (Course c : coursesForReqsNotMet) {
+            if (!springCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.SPRING)) {
+                springCourses.add(c);
+            }
+            if (!summerCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.SUMMER)) {
+                summerCourses.add(c);
+            }
+            if (!fallCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.FALL)) {
+                fallCourses.add(c);
+            }
+            if (!winterCourses.contains(c) && Arrays.asList(c.getQuartersOffered()).contains(Season.WINTER)) {
+                winterCourses.add(c);  
+            }
+        }
+        ArrayList<Course> coursesFound = findBestCourses(requirementsNotMet, requirements, springCourses, Season.SPRING);
+        for (Course course : coursesFound) {
+            summerCourses.remove(course);
+            fallCourses.remove(course);
+            winterCourses.remove(course);
+            springCourses.remove(course);
+        }
+        coursesTaken.addAll(coursesFound);
+        requirementsNotMet = checkRequirements(requirements, coursesTaken);
+        coursesFound.clear();
+        coursesFound = findBestCourses(requirementsNotMet, requirements, summerCourses, Season.SUMMER);
+        for (Course course : coursesFound) {
+            fallCourses.remove(course);
+            winterCourses.remove(course);
+            springCourses.remove(course);
+        }
+        coursesTaken.addAll(coursesFound);
+        requirementsNotMet = checkRequirements(requirements, coursesTaken);
+        coursesFound.clear();
+        coursesFound = findBestCourses(requirementsNotMet, requirements, fallCourses, Season.FALL);
+        for (Course course : coursesFound) {
+            winterCourses.remove(course);
+            springCourses.remove(course);
+        }
+        coursesTaken.addAll(coursesFound);
+        requirementsNotMet = checkRequirements(requirements, coursesTaken);
+        coursesFound.clear();
+        coursesFound = findBestCourses(requirementsNotMet, requirements, winterCourses, Season.WINTER);
+        for (Course course : coursesFound) {
+            springCourses.remove(course);
+        }
+        coursesTaken.addAll(coursesFound);
+        requirementsNotMet = checkRequirements(requirements, coursesTaken);
+        findBestCourses(requirementsNotMet, requirements, springCourses, Season.SPRING);
+    }
+
+    private static ArrayList<Course> findBestCourses(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> courses, Season season) {
+        ArrayList<Requirement> uniqueReqs = new ArrayList<Requirement>();
+        Map<Course, ArrayList<Requirement>> requirementsFulfilledByCourse = new HashMap<Course, ArrayList<Requirement>>();
+        for (Course course: courses) {
+            ArrayList<Requirement> requirementsFulfilled = new ArrayList<Requirement>();
+            for (Requirement req: requirementsNotMet.keySet()) {
+                if (req.getNecessaryCourses().contains(course)) {
+                    requirementsFulfilled.add(req);
+                    if (!uniqueReqs.contains(req)) {
+                        uniqueReqs.add(req);
+                    }
+                }
+            }
+            requirementsFulfilledByCourse.put(course, requirementsFulfilled);
+            
+        }
+
+        return null;
+        /*
+            if (i > 2) {
+                System.out.print("At least 3: " + course.getName() + ": ");
+                for (Requirement req: requirementsNotMet.keySet()) {
+                    if (req.getNecessaryCourses().contains(course)) {
+                        System.out.print(req.getRequirementName() + ", ");
+                    }
+                }
+                System.out.println("");
+            }*/
+    }
     private static void initializeCscRequirements() {
         // major
         cscRequirements.put("csc101 4", Arrays.asList("csc101"));
