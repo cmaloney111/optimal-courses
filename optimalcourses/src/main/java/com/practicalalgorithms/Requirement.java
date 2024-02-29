@@ -1,6 +1,8 @@
 package com.practicalalgorithms;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.ArrayList;
 
 public class Requirement {
@@ -26,6 +28,26 @@ public class Requirement {
 
     public int getNum() {
         return num;
+    }
+
+    public static void whatFulfillsIt(Set<Requirement> requirements, List<Course> courses) {
+        for (Requirement req : requirements) {
+            ArrayList<String> courseNames = new ArrayList<String>();
+            int unitsFulfilled = 0;
+            for (Course course : courses) {
+                if (req.getNecessaryCourses().contains(course)) {
+                    courseNames.add(course.getName());
+                    unitsFulfilled += course.getUnits();
+                }
+            }
+            if (unitsFulfilled >= req.getNum()) {
+                System.out.print(req.getRequirementName() + ": ");
+                for (String courseName : courseNames) {
+                    System.out.print(courseName.substring(0, courseName.indexOf(".")) + ", ");
+                }
+                System.out.println("");
+            }
+        }
     }
 
     // Method to check if a given list of courses fulfills the requirement
