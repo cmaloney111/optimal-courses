@@ -9,44 +9,32 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.stream.*;
 
 
 public class CourseScraper {
+    // Class that does all functions relating to scraping the cal poly catalog
 
-    Map<String, List<Course>> coursesByPrefix = new HashMap<>();
+    Map<String, List<Course>> coursesByPrefix = new HashMap<>(); // map of each course prefix (csc, econ, etc.) to its respective courses (csc101, econ222, etc.)
+    
+    // Populate the coursesByPrefix map by first finding all course prefixing, then finding all courses within each prefix
     public void populateCoursesByPrefix() {
         try {
-            List<String> urls = extractHyperlinks("https://catalog.calpoly.edu/coursesaz/");
+            List<String> urls = extractHyperlinks("https://catalog.calpoly.edu/coursesaz/"); // find prefixes
             for (String url: urls) {
-                String prefix = url.substring(url.substring(1).indexOf('/') + 2);
-                List<Course> courses = scrapeCourseData("https://catalog.calpoly.edu/coursesaz/" + prefix);
-                this.coursesByPrefix.put(prefix.substring(0, prefix.length() - 1), courses);    
+                String prefix = url.substring(url.substring(1).indexOf('/') + 2); // get prefix
+                List<Course> courses = scrapeCourseData("https://catalog.calpoly.edu/coursesaz/" + prefix); // find courses that belong to prefix
+                this.coursesByPrefix.put(prefix.substring(0, prefix.length() - 1), courses); // populate map
             }
-            
-
-            /* 
-            for (Map.Entry<String, List<Course>> prefix : coursesByPrefix.entrySet()) {
-                System.out.print("Prefix: " + prefix.getKey() + ", Value: ");
-                Course course = prefix.getValue().get(0);
-                System.out.println(course.getName() + ", offered in: " + Arrays.toString(course.getQuartersOffered()) + ", units: " + course.getUnits() + ", GE: " + course.getGE() + ", isUSCP: " + course.isUSCP() + ", isGWR: " + course.isGWR());
-            }
-            Course course = (Course) coursesByPrefix.get("th").stream()
-                            .filter(co -> "TH 201".equals(co.getName().substring(0, 6)))
-                            .collect(Collectors.toList()).get(0);
-            System.out.println(course.getName() + ", offered in: " + Arrays.toString(course.getQuartersOffered()) + ", units: " + course.getUnits() + ", GE: " + course.getGE() + ", isUSCP: " + course.isUSCP() + ", isGWR: " + course.isGWR());
-            */
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public Map<String, Course> getCoursesFromMajor(String url) {
+        // Function that takes a major's curriculum page (the required and elective courses) and scrapes it
         try {
-            // "https://catalog.calpoly.edu/collegesandprograms/collegeofengineering/computersciencesoftwareengineering/bscomputerscience/";
-
             // Fetch the HTML content from the URL
             Document document = Jsoup.connect(url).get();
 
@@ -58,7 +46,7 @@ public class CourseScraper {
 
             // Iterate through each course element
             for (Element courseElement : courseElements) {
-                // Extract the course code (e.g., 'CSC 101') from the onclick attribute
+                // Extract the course code (like csc101, econ222) from the onclick attribute
                 String onClickValue = courseElement.attr("onclick");
                 String courseCode = onClickValue.substring(findLastIndex(onClickValue, ",") + 3, onClickValue.length() - 3);
 
@@ -70,13 +58,12 @@ public class CourseScraper {
                 String prefix = parts[0];
                 String number = parts[1];
 
-                // Run the getCourseByName function
-                Course course = getCourseByCode(prefix, number);
+                Course course = getCourseByCode(prefix, number); // get the course object
 
                 // Create a lowercase string representing the course name (e.g., 'csc101')
                 String courseNameKey = prefix.toLowerCase() + number;
 
-                // Store the course object in the HashMap
+                // Store the course object in the map
                 courseMap.put(courseNameKey, course);
             }
 
@@ -90,19 +77,21 @@ public class CourseScraper {
     }
 
     public Course getCourseByCode(String prefix, String number) {
-        // System.out.println("Prefix: " + prefix + ", number: " + number);
+        // Find course by pipelining map data into a stream
         return (Course) this.coursesByPrefix.get(prefix.toLowerCase()).stream()
                             .filter(course -> (prefix.toUpperCase() + " " + number).equals(course.getName().substring(0, prefix.length() + number.length() + 1)))
                             .collect(Collectors.toList()).get(0);
     }
 
     private static List<String> extractHyperlinks(String url) throws IOException {
+        // Function to find prefixes from the cal poly course catalog "courses" section
         List<String> urls = new ArrayList<>();
         Document document = Jsoup.connect(url).get();
 
         // Select the hyperlinks with the class "sitemaplink" within the specific part of the page
         Elements hyperlinks = document.select("tbody tr td a.sitemaplink");
 
+        // For each hyperlink, get the "href" component (which is the prefix) and add that to the urls list
         for (Element hyperlink : hyperlinks) {
             String href = hyperlink.attr("href");
             urls.add(href);
@@ -112,12 +101,14 @@ public class CourseScraper {
     }
 
     private static List<Course> scrapeCourseData(String url) throws IOException {
+        // Function to return a list of courses by scraping the data from each course's entry in the cal poly catalog
         List<Course> courses = new ArrayList<>();
         Document document = Jsoup.connect(url).get();
 
         // Select course elements on the webpage
         Elements courseElements = document.select(".courseblock");
 
+        // For each course entry, extract relevant data (name, GEs, seasons offered, etc.)
         for (Element courseElement : courseElements) {
             Course course = extractCourse(courseElement);
             courses.add(course);
@@ -158,6 +149,7 @@ public class CourseScraper {
     }
 
     private static GenEdArea extractGE(String GEText) {
+        // Function that takes the text given at the beginning of each course element and finds what GE it fulfills (in 2021-later catalogs)
         if (GEText.charAt(12) == 'U') {
             return GenEdArea.valueOf("UD" + GEText.charAt(27));
         }
@@ -181,12 +173,12 @@ public class CourseScraper {
     }
 
     private static Season[] extractSeasonList(String seasonText) {
+        // Takes the text at the beginning of a course element and finds what seasons it is offered in 
         Season[] seasonList = new Season[4];
 
         int indexOfColon = seasonText.indexOf(':');
         int endIndex = indexOfColon + 12;
         
-        // Check if endIndex exceeds the length of the string
         if (endIndex > seasonText.length()) {
             endIndex = seasonText.length();
         }
@@ -210,7 +202,9 @@ public class CourseScraper {
         return seasonList;
 
     }
+
     private static int findLastIndex(String s, String last) {
+        // Helper function to find the last index of any of the characters in last in the string s
         for (int i = s.length() - 1; i >= 0; i--) {
             for (int j = 0; j < last.length(); j++) {
                 if (last.charAt(j) == s.charAt(i)) {

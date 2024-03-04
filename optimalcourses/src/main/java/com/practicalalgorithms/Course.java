@@ -1,5 +1,7 @@
 package com.practicalalgorithms;
 
+import java.util.Objects;
+
 public class Course {
     /* Add comments later */
     private String name;
@@ -8,7 +10,6 @@ public class Course {
     private int units;
     private boolean isUSCP;
     private boolean isGWR;
-    private boolean taken;
 
     public Course(String name, GenEdArea GE, Season[] quarters_offered, int units, boolean isUSCP, boolean isGWR) {
         this.name = name;
@@ -17,7 +18,6 @@ public class Course {
         this.units = units;
         this.isUSCP = isUSCP;
         this.isGWR = isGWR;
-        this.taken = false;
     }
 
     public String getName() {
@@ -29,7 +29,7 @@ public class Course {
     }
 
     public Season[] getQuartersOffered() {
-        return this.quarters_offered.clone();  // returning a clone to prevent external modification
+        return this.quarters_offered.clone();
     }
 
     public int getUnits() {
@@ -44,11 +44,12 @@ public class Course {
         return this.isGWR;
     }
 
-    public boolean getTaken() {
-        return this.taken;
-    }
-
-    public void takeCourse() {
-        this.taken = true;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Course that = (Course) o;
+        return Objects.equals(this.name, that.getName()) &&
+                Objects.equals(this.GE, that.getGE());
     }
 }

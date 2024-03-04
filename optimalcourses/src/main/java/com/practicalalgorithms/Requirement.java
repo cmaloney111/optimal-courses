@@ -1,13 +1,12 @@
 package com.practicalalgorithms;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 
 public class Requirement {
     private String requirementName;
-    private List<Course> necessaryCourses;
+    private List<Course> necessaryCourses; // list of necessary courses to fulfill requirement
     private int num; // Number of units needed in requirement
     private Boolean fulfilled;
 
@@ -30,7 +29,9 @@ public class Requirement {
         return num;
     }
 
-    public static void whatFulfillsIt(Set<Requirement> requirements, List<Course> courses) {
+    // Find which courses in a list of courses fulfill each requirement in a set of requirements
+    public static int whatFulfillsIt(Set<Requirement> requirements, List<Course> courses) {
+        int reqsFulfilled = 0;
         for (Requirement req : requirements) {
             ArrayList<String> courseNames = new ArrayList<String>();
             int unitsFulfilled = 0;
@@ -46,8 +47,10 @@ public class Requirement {
                     System.out.print(courseName.substring(0, courseName.indexOf(".")) + ", ");
                 }
                 System.out.println("");
+                reqsFulfilled++;
             }
         }
+        return reqsFulfilled;
     }
 
     // Method to check if a given list of courses fulfills the requirement

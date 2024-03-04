@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Arrays;
 
 public class RequirementEntry {
+    // Class that aids in dynamic programming solution for finding ideal course path
     private List<Requirement> requirements;
     private List<Integer> courses;
 
@@ -26,7 +27,7 @@ public class RequirementEntry {
 
     // Getter methods
     public List<Requirement> getRequirements() {
-        return new ArrayList<>(requirements); // Defensive copy to prevent external modification
+        return new ArrayList<>(requirements); 
     }
 
     public ArrayList<Integer> getCourses() {
