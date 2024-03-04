@@ -1099,8 +1099,10 @@ public class CourseSelector {
         coursesTakenByCode.add("phil350");
         return coursesTakenByCode;
     }
-    
+
     private static ArrayList<Course> populateCoursesTaken(CourseScraper cs, ArrayList<String> coursesTakenByCode) {
+        // Given the coursesTakenByCode list (of strings), convert each course taken to the 
+        // actual course object associated and return a list with the course objects
         ArrayList<Course> coursesTaken = new ArrayList<Course>();
         for (String courseCode : coursesTakenByCode) {
             String prefix = courseCode.replaceAll("[0-9]", "");
