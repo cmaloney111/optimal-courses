@@ -57,6 +57,7 @@ public class CourseSelector {
             System.out.println("2. Find Courses (Brute Force Method - search all possible course lists to find ideal)");
             System.out.println("3. Find Courses (Divide Then DP - finds ideal course list for each season but may not \n\t\t\t\t  find overall ideal course list, finds \"approximation\")");
             System.out.println("4. Find Courses (DP Then Divide (Using Ford-Fulkerson algorithm for max flow) - finds an ideal course list, best option)");
+            System.out.println("5. Test method (actual best of them all!)");
             System.out.println("0. Exit");
 
             int choice = getUserChoice(scanner);
@@ -75,6 +76,8 @@ public class CourseSelector {
                 case 4:
                     findCoursesDPThenDivide(requirementsNotMet, requirements, coursesTaken);
                     break;
+                case 5:
+                    optimalCourses(requirementsNotMet, requirements, coursesTaken);
                 case 0:
                     System.out.println("Exiting program. Goodbye!");
                     System.exit(0);
@@ -132,8 +135,16 @@ public class CourseSelector {
                 spanElectives.add(span.getValue());
             }
         }
-        requirements.add(new Requirement("span_electives", spanElectives, 12));
+        requirements.add(new Requirement("span_electives", spanElectives, 4));
 
+        ArrayList<Course> spanElectives2 = new ArrayList<Course>();
+        spanElectives2.addAll(spanElectives);
+        spanElectives2.remove(cs.getCourseByCode("engl", "346"));
+        spanElectives2.remove(cs.getCourseByCode("engl", "380"));
+        
+        spanElectives2.remove(cs.getCourseByCode("geog", "308"));
+        
+        requirements.add(new Requirement("span_electives2", spanElectives2, 4));
 
         Map<String, List<Course>> genEdCoursesMap = new HashMap<>(); // find which courses fit into each GE
         ArrayList<Course> USCPcourses = new ArrayList<Course>(); // find USCP (United States Cultural Pluralism) courses
@@ -744,6 +755,150 @@ public class CourseSelector {
         }
     }
 
+
+    private static void optimalCourses(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> coursesTaken) {
+        // This method finds an optimal course path (there may be many), then attempts to divide it into seasons.
+        // If it cannot, it lets the user know which courses cannot be fit into seasons. This function will always
+        // find an ideal solution, but takes slightly longer than the Naive or DivideThenDP methods
+
+        // Find all courses that that fulfill at least one requirement that is not met
+        ArrayList<Course> coursesForReqsNotMet = new ArrayList<Course>();
+        for (Map.Entry<Requirement, Integer> requirement: requirementsNotMet.entrySet()) {
+            coursesForReqsNotMet.addAll(requirement.getKey().getNecessaryCourses());            
+        }
+
+        ArrayList<Course> futureCoursesTaken = new ArrayList<Course>();
+        System.out.println("Requirements fulfilled by each course:\n");
+        int reqsFulfilled = 0;
+
+        // Loop through the DP algorithm since the DP algorithm may miss a few courses on its first run
+        // due to requirements that need more than one course to complete (such as many elective requirements)
+
+        optimalCoursesHelperFunction(requirementsNotMet, coursesForReqsNotMet, requirements, coursesTaken);
+    }
+
+    private static void optimalCoursesHelperFunction(Map<Requirement, Integer> requirementsNotMet, ArrayList<Course> coursesForReqsNotMet, List<Requirement> requirements, ArrayList<Course> coursesTaken) {
+        // Run dp algorithm
+        int numCourses = 25;
+        ArrayList<ArrayList<RequirementEntry>> dp = findBestCoursesDP(requirementsNotMet, requirements, coursesForReqsNotMet, Season.TBD, numCourses); 
+        
+        Set<Requirement> requirementsNotMetList = requirementsNotMet.keySet();
+            
+        // Find solution at Max{dp[numCourses, j]} for 0 <= j <= size of course list
+        
+        int num_it = 0;
+
+        ArrayList<Course> coursesForReqsNotMetReal = new ArrayList<Course>();
+        coursesForReqsNotMetReal.addAll(coursesForReqsNotMet);
+        ArrayList<Course> coursesTakenReal = new ArrayList<Course>();
+        coursesTakenReal.addAll(coursesTaken);
+        while(true) {
+            coursesForReqsNotMet.clear();
+            coursesForReqsNotMet.addAll(coursesForReqsNotMetReal);
+            coursesTaken.clear();
+            coursesTaken.addAll(coursesTakenReal);
+            if (num_it >= coursesForReqsNotMet.size()) {
+                return;
+            }
+            num_it++;
+            int maxReqs = 0;
+            int max_j = 0;
+            ArrayList<Integer> bestCourseIntegerList = new ArrayList<Integer>();
+            List<Course> bestCourses = new ArrayList<Course>();
+            for (int j = 0; j < coursesForReqsNotMet.size(); j++) {
+                if (dp.get(numCourses).get(j).getRequirements().size() > maxReqs) {
+                    maxReqs = dp.get(numCourses).get(j).getRequirements().size();
+                    bestCourseIntegerList = dp.get(numCourses).get(j).getCourses();
+                    max_j = j;
+                    //System.out.println(dp.get(numCourses).get(j).getRequirements().size());
+                }
+            }
+            
+            // Convert solution (integerized) to actual course objects
+            for (int courseInt : bestCourseIntegerList) {
+                if (!bestCourses.contains(coursesForReqsNotMet.get(courseInt))) {
+                    bestCourses.add(coursesForReqsNotMet.get(courseInt));
+                }
+            }
+
+            
+
+            ArrayList<Course> bestCoursesIDK = new ArrayList<>(bestCourses);
+            coursesTaken.addAll(bestCourses);
+            ArrayList<Requirement> idk = new ArrayList<>(requirementsNotMetList);
+            if (checkRequirements(idk, bestCoursesIDK).size() > 0) {
+                dp.get(numCourses).set(max_j, new RequirementEntry());
+                continue;
+            }
+            System.out.println("\n" + num_it);
+            
+            System.out.println(max_j);
+            
+            if (Requirement.whatFulfillsIt(requirementsNotMetList, coursesTaken) == 0) {
+                dp.get(numCourses).set(max_j, new RequirementEntry());
+                continue;
+            }
+            
+
+
+
+
+            // Update requirement map and lists of courses taken
+            // futureCoursesTaken consists of all new courses taken (not yet taken by the user, courses the user plans to take)
+            // coursesTaken includes all new and old courses taken (courses taken by the user and courses the user will take)
+
+            // Print out future courses to take
+            
+            // Split the courses into seasons
+            ArrayList<Course> futureFallCourses = new ArrayList<>();
+            ArrayList<Course> futureWinterCourses = new ArrayList<>();
+            ArrayList<Course> futureSpringCourses = new ArrayList<>();
+            ArrayList<Course> futureSummerCourses = new ArrayList<>();
+
+            int[] seasonCapacities = {5, 5, 5, 10}; // Edit based on capacities (fall, winter, spring, summer)
+            MaxFlow.fillSeasonLists(bestCourses, futureFallCourses, futureWinterCourses, futureSpringCourses, futureSummerCourses, seasonCapacities);
+        
+            ArrayList<Course> combinedCourseList = new ArrayList<Course>();
+            combinedCourseList.addAll(futureFallCourses);
+            combinedCourseList.addAll(futureWinterCourses);
+            combinedCourseList.addAll(futureSpringCourses);
+            combinedCourseList.addAll(futureSummerCourses);
+
+            System.out.println(bestCourses.size());
+            
+
+            bestCourses.removeAll(combinedCourseList);
+        
+            System.out.println(futureFallCourses.size() + "," + futureWinterCourses.size() + "," + futureSpringCourses.size() + "," + futureSummerCourses.size());
+
+            if (bestCourses.size() == 0) {
+                // Print out each season's future courses
+                System.out.print("\nFuture Spring Courses: ");
+                for (Course c : futureSpringCourses) {
+                    System.out.print(c.getName().substring(0, c.getName().indexOf(".")) + ", ");
+                }
+                System.out.print("\nFuture Summer Courses: ");
+                for (Course c : futureSummerCourses) {
+                    System.out.print(c.getName().substring(0, c.getName().indexOf(".")) + ", ");
+                }
+                System.out.print("\nFuture Fall Courses: ");
+                for (Course c : futureFallCourses) {
+                    System.out.print(c.getName().substring(0, c.getName().indexOf(".")) + ", ");
+                }
+                System.out.print("\nFuture Winter Courses: ");
+                for (Course c : futureWinterCourses) {
+                    System.out.print(c.getName().substring(0, c.getName().indexOf(".")) + ", ");
+                } 
+                System.out.println(" ");
+                return;
+            }
+            else {
+                dp.get(numCourses).set(max_j, new RequirementEntry());
+            }
+        }
+
+    }
+
     
     private static List<Course> findBestCourses(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> courses, Season season, int numCourses) {
         // A dynamic programming approach to finding the best course list, explained in more detail below.
@@ -843,6 +998,76 @@ public class CourseSelector {
         return bestCourses;
     }
 
+    private static ArrayList<ArrayList<RequirementEntry>> findBestCoursesDP(Map<Requirement, Integer> requirementsNotMet, List<Requirement> requirements, ArrayList<Course> courses, Season season, int numCourses) {
+        // A dynamic programming approach to finding the best course list, explained in more detail below.
+        // Note that numCourses is simply the max number of courses that one is willing to take, so if one wants
+        // to find an optimal course path to fulfill all of their requirements, they should set it to a number
+        // higher than the number of courses that they would need to take if they fulfilled each requirement one by one.
+        // This method will find the optimal course path given numCourses courses and then trim it down to the real optimal course path.
+
+        // Find all requirements fulfilled by each course 
+        Map<Course, ArrayList<Requirement>> requirementsFulfilledByCourse = new HashMap<Course, ArrayList<Requirement>>();
+        for (Course course: courses) {
+            ArrayList<Requirement> requirementsFulfilled = new ArrayList<Requirement>();
+            for (Requirement req: requirementsNotMet.keySet()) {
+                if (req.getNecessaryCourses().contains(course)) {
+                    requirementsFulfilled.add(req);
+                }
+            }
+            requirementsFulfilledByCourse.put(course, requirementsFulfilled);
+            
+        }
+
+
+        // Definition: dp[i, j] = Max number of requirements that can be fulfilled with i courses using course j
+        // Base case(s): dp[1, j] = number of requirements fulfilled by course j
+        // Solution: Max{dp[numCourses, j]} for 0 <= j <= size of course list
+        // Formula: dp[i, j] = Max{dp[i-1, k] + number of unique requirements fulfilled 
+        //                         by course j (not already fulfilled by the courses in dp[i-1, k]) }
+        
+        ArrayList<ArrayList<RequirementEntry>> dp = new ArrayList<>();
+        
+        // initializing dp 2d array
+        for (int i = 0; i < numCourses+1; i++) {
+            ArrayList<RequirementEntry> courseList = new ArrayList<>();
+            for (int j = 0; j < courses.size(); j++) {
+                courseList.add(new RequirementEntry());
+            }
+            dp.add(courseList);
+        }
+
+        // base case
+        for (int j = 0; j < courses.size(); j++) {
+            dp.get(1).set(j, new RequirementEntry(requirementsFulfilledByCourse.get(courses.get(j)), j));
+        }
+
+        // dp algorithm
+        for (int i = 2; i < numCourses+1; i++) {
+            for (int j = 0; j < courses.size(); j++) {
+                for (int k = 0; k < courses.size(); k++) {
+                    ArrayList<Requirement> uniqueRequirements = new ArrayList<Requirement>();
+                    uniqueRequirements.addAll((dp.get(i-1).get(k).getRequirements()));
+                    uniqueRequirements = union(uniqueRequirements, requirementsFulfilledByCourse.get(courses.get(j)));
+                    
+                    // Loop through all values for dp[i-1, k] to find max number of unique requirements fulfilled
+                    if (dp.get(i).get(j).getRequirements().size() < uniqueRequirements.size()) {
+                        ArrayList<Integer> uniqueCourses = dp.get(i-1).get(k).getCourses();
+                        uniqueCourses.add(j);
+                        RequirementEntry entryToUpdate = dp.get(i).get(j);
+                        entryToUpdate.setRequirements(uniqueRequirements);
+                        entryToUpdate.setCourses(uniqueCourses);
+                        dp.get(i).set(j, entryToUpdate);
+                    }
+
+                }
+            }
+        }
+
+        return dp;
+    }
+
+
+
 
     private static <T> ArrayList<T> union(List<T> list1, List<T> list2) {
         // Find then union of two lists
@@ -881,8 +1106,9 @@ public class CourseSelector {
         cscRequirements.put("csc466 4", Arrays.asList("csc466"));
         cscRequirements.put("csc480 4", Arrays.asList("csc480"));
         cscRequirements.put("csc487 4", Arrays.asList("csc487"));
-        cscRequirements.put("stat344 4", Arrays.asList("stat334"));
-        cscRequirements.put("AI_electives 8", Arrays.asList("cpe428", "csc481", "csc482", "csc566", "csc580", "csc581", "csc582", "csc587", "data301", "ee509", "stat434"));
+        cscRequirements.put("csc582 4", Arrays.asList("csc582"));
+        cscRequirements.put("stat334 4", Arrays.asList("stat334"));
+        cscRequirements.put("csc482 4", Arrays.asList("csc482"));
         
         // Support courses
         cscRequirements.put("GRC 4", Arrays.asList("es350", "es351"));
@@ -920,6 +1146,7 @@ public class CourseSelector {
     private static ArrayList<String> populateCoursesTakenByCode() {
         // Put in all of the courses I have taken that are relevant to my two majors
         ArrayList<String> coursesTakenByCode = new ArrayList<String>();
+        coursesTakenByCode.add("engl310");
         coursesTakenByCode.add("csc101");
         coursesTakenByCode.add("csc123");
         coursesTakenByCode.add("csc202");
@@ -953,7 +1180,11 @@ public class CourseSelector {
         coursesTakenByCode.add("span201");
         coursesTakenByCode.add("span202");
         coursesTakenByCode.add("span203");
-        coursesTakenByCode.add("phil350");
+        coursesTakenByCode.add("phil323");
+        coursesTakenByCode.add("csc430");
+        coursesTakenByCode.add("span301");
+        coursesTakenByCode.add("csc307");
+        coursesTakenByCode.add("econ222");
         return coursesTakenByCode;
     }
 

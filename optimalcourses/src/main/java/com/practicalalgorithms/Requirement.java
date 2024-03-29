@@ -49,6 +49,10 @@ public class Requirement {
                 System.out.println("");
                 reqsFulfilled++;
             }
+            else {
+                System.out.println(req.getRequirementName() + ": not fulfilled");
+                return 0;
+            }
         }
         return reqsFulfilled;
     }
